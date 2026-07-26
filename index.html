@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="id">
+ <head><script>window["__codeletBootstrap__"]=JSON.parse('{"A":"A","B":"20260723-05-e9a76f4"}');</script><script src="/_sdk/e358eac22bd01364.telemetry_sdk.js" integrity="sha512-KPxp3rw4K8Nu9ceWJc3gyM7srgaZxiFWOVbyu260EYzzAqdz10mfo5xyXrCx+wEKtGo77JbtmwXvFLbwrGzwvw=="></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulasi Efek Compton</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&amp;family=Fraunces:wght@700;900&amp;display=swap" rel="stylesheet">
+  <style>
+        body { font-family: 'DM Sans', sans-serif; }
+        .heading-font { font-family: 'Fraunces', serif; }
+        canvas { display: block; }
+    </style>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
+  <script src="/_sdk/935a53bc2e11fb8d.data_sdk.js" type="text/javascript" integrity="sha512-qr2oyPnEys1WebcOABaRh6hG77r5PWpqeWW6JTKbRJqly/INsfBi31CVNlTmHqjgeLpkVmmHZJUdxSx/32tOFQ=="></script>
+  <script src="/_sdk/6030e540d4419216.resizing_sdk.js" type="text/javascript" integrity="sha512-b5KWzyoXsbWP4smq4sftIi6Kts4YVBpBsz0BwCViwbBJkK64a3/Z6ZMdWA+qnplNcXw4mhZeqvQi3mOosiRJdA=="></script>
+ </head>
+ <body data-template-id="__page-root" class="w-full min-h-screen">
+  <header class="p-6 text-center">
+   <h1 data-template-id="page-title" class="canva-text heading-font text-3xl">Simulasi Efek Compton</h1>
+   <p data-template-id="page-subtitle" class="canva-text mt-2 text-lg opacity-80">Interaksi foton dengan elektron bebas — pelajari pergeseran panjang gelombang</p>
+  </header>
+  <main class="max-w-4xl mx-auto px-4 pb-8">
+   <div class="rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+    <canvas id="sim-canvas" width="800" height="360" class="w-full bg-gray-900"></canvas>
+   </div>
+   <div class="mt-6 grid sm:grid-cols-2 gap-4">
+    <div data-template-id="controls-panel" class="canva-card rounded-xl p-5"><label data-template-id="angle-label" class="canva-text font-medium block mb-2" for="angle-slider">Sudut Hamburan (θ)</label> <input id="angle-slider" type="range" min="10" max="180" value="90" class="w-full accent-amber-400">
+     <p id="angle-value" class="text-center mt-1 font-bold text-lg text-amber-300">θ = 90°</p>
+     <div class="flex gap-3 mt-4"><button id="btn-start" class="flex-1 py-2 px-4 rounded-lg font-semibold bg-amber-400 text-gray-900 hover:bg-amber-300 transition">Mulai Simulasi</button> <button id="btn-reset" class="flex-1 py-2 px-4 rounded-lg font-semibold bg-gray-600 text-white hover:bg-gray-500 transition">Reset</button>
+     </div>
+    </div>
+    <div data-template-id="info-panel" class="canva-card rounded-xl p-5">
+     <h2 data-template-id="info-title" class="canva-text font-bold text-lg mb-3">Hasil Perhitungan</h2>
+     <div id="calc-output" class="space-y-1 text-sm font-mono">
+      <p>λ₀ = <span id="lambda0">0.0100</span> nm</p>
+      <p>θ = <span id="theta-display">90</span>°</p>
+      <p>Δλ = <span id="delta-lambda">0.00243</span> nm</p>
+      <p>λ' = <span id="lambda-prime">0.01243</span> nm</p>
+     </div>
+     <p data-template-id="formula-text" class="canva-text mt-4 text-xs opacity-70 italic">Rumus: Δλ = (h/m₀c)(1 − cos θ) ; h/m₀c = 0,00243 nm</p>
+    </div>
+   </div>
+  </main>
+  <script src="/_sdk/c939c145c3c74230.editing_sdk.js" integrity="sha512-jh2pv/gl9Gzzn5dxfzwQO4wkqtnAQIim+LIUDYfVu2cdqPkQV2MqbjsDUW5IYbrSZFjRlOBrIWzlvWDXQYxOjg=="></script>
+  <script>
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('angle-slider');
+        const angleValue = document.getElementById('angle-value');
+        const lambda0El = document.getElementById('lambda0');
+        const thetaEl = document.getElementById('theta-display');
+        const deltaEl = document.getElementById('delta-lambda');
+        const primeEl = document.getElementById('lambda-prime');
+
+        const COMPTON_SHIFT = 0.00243; // nm
+        const LAMBDA0 = 0.0100; // nm
+
+        let angle = 90;
+        let animState = 'idle'; // idle, incoming, scatter
+        let animT = 0;
+        let animFrame = null;
+
+        // Positions
+        const W = 800, H = 360;
+        const electronPos = { x: W * 0.5, y: H * 0.5 };
+
+        function updateCalc() {
+            const rad = angle * Math.PI / 180;
+            const dLambda = COMPTON_SHIFT * (1 - Math.cos(rad));
+            const lambdaPrime = LAMBDA0 + dLambda;
+            thetaEl.textContent = angle;
+            deltaEl.textContent = dLambda.toFixed(5);
+            primeEl.textContent = lambdaPrime.toFixed(5);
+            angleValue.textContent = `θ = ${angle}°`;
+        }
+
+        slider.addEventListener('input', () => {
+            angle = parseInt(slider.value);
+            updateCalc();
+            if (animState === 'idle') drawIdle();
+        });
+
+        function drawIdle() {
+            ctx.clearRect(0, 0, W, H);
+            drawGrid();
+            drawElectron(electronPos.x, electronPos.y);
+            drawPhoton(80, H / 2, '#fbbf24', 12);
+            drawArrow(100, H / 2 - 30, 200, H / 2 - 30, '#fbbf24');
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = '14px DM Sans';
+            ctx.fillText('Foton datang (γ)', 100, H / 2 - 40);
+            ctx.fillText('Elektron diam (e⁻)', electronPos.x - 40, electronPos.y + 40);
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+            for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+        }
+
+        function drawElectron(x, y) {
+            ctx.beginPath();
+            ctx.arc(x, y, 16, 0, Math.PI * 2);
+            ctx.fillStyle = '#60a5fa';
+            ctx.fill();
+            ctx.strokeStyle = '#93c5fd';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 12px DM Sans';
+            ctx.textAlign = 'center';
+            ctx.fillText('e⁻', x, y + 4);
+            ctx.textAlign = 'start';
+        }
+
+        function drawPhoton(x, y, color, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            for (let i = 0; i < 4; i++) {
+                ctx.rotate(Math.PI / 4);
+                ctx.rect(-2, -size, 4, size * 2);
+            }
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawArrow(x1, y1, x2, y2, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function startSim() {
+            if (animState !== 'idle') return;
+            animState = 'incoming';
+            animT = 0;
+            animate();
+        }
+
+        function animate() {
+            animT += 0.02;
+            ctx.clearRect(0, 0, W, H);
+            drawGrid();
+
+            if (animState === 'incoming') {
+                const px = 80 + animT * (electronPos.x - 80);
+                const py = H / 2;
+                drawElectron(electronPos.x, electronPos.y);
+                drawPhoton(px, py, '#fbbf24', 12);
+                if (animT >= 1) { animState = 'scatter'; animT = 0; }
+            } else if (animState === 'scatter') {
+                const rad = angle * Math.PI / 180;
+                // Scattered photon - bounded to stay inside canvas limits (W=800, H=360)
+                const maxPhotonDist = 180; // reduced distance to keep visible inside box
+                const spx = electronPos.x + animT * maxPhotonDist * Math.cos(-rad);
+                const spy = electronPos.y + animT * maxPhotonDist * Math.sin(-rad);
+                drawPhoton(spx, spy, '#f97316', 10);
+
+                // Recoil electron - bounded to stay inside canvas limits
+                const recoilAngle = Math.atan2(Math.sin(rad), (1 - Math.cos(rad))) || Math.PI / 4;
+                const maxElectronDist = 110; // reduced distance to keep visible inside box
+                const ex = electronPos.x + animT * maxElectronDist * Math.cos(recoilAngle);
+                const ey = electronPos.y + animT * maxElectronDist * Math.sin(recoilAngle);
+                drawElectron(ex, ey);
+
+                // Labels
+                ctx.fillStyle = '#f97316';
+                ctx.font = '13px DM Sans';
+                ctx.fillText("γ' (terhambur)", spx + 10, spy - 10);
+                ctx.fillStyle = '#60a5fa';
+                ctx.fillText("e⁻ (terpental)", ex + 10, ey + 25);
+
+                // Draw angle arc
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(electronPos.x, electronPos.y, 50, 0, -rad, rad > 0);
+                ctx.stroke();
+                ctx.fillStyle = '#fbbf24';
+                ctx.fillText(`θ=${angle}°`, electronPos.x + 55, electronPos.y - 10);
+
+                if (animT >= 1) { animState = 'done'; return; }
+            }
+
+            animFrame = requestAnimationFrame(animate);
+        }
+
+        function resetSim() {
+            animState = 'idle';
+            animT = 0;
+            if (animFrame) cancelAnimationFrame(animFrame);
+            drawIdle();
+        }
+
+        document.getElementById('btn-start').addEventListener('click', startSim);
+        document.getElementById('btn-reset').addEventListener('click', resetSim);
+
+        updateCalc();
+        drawIdle();
+    </script>
+ </body>
+</html>
